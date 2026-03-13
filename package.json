@@ -1,0 +1,9 @@
+{
+  "name": "delta-price-analysis-root",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix \"web\" run dev",
+    "start": "npm --prefix \"web\" run start",
+    "install:web": "npm --prefix \"web\" install"
+  }
+}

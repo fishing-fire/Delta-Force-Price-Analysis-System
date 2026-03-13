@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>倒卖计划 - 三角洲行动</title>
+    <link rel="stylesheet" href="/css/theme.css">
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="tp">
+    <header class="topbar">
+        <div class="container topbar__inner">
+            <div class="brand">
+                <div class="brand__logo">Delta Force</div>
+                <div class="brand__title">倒卖子弹买卖计划</div>
+            </div>
+            <nav class="nav" aria-label="导航">
+                <a href="/">概览</a>
+                <a href="/trade-plan.html" aria-current="page">倒卖计划</a>
+                <a href="/thesis/项目总体架构图.html">项目架构</a>
+            </nav>
+            <div class="actions"></div>
+        </div>
+    </header>
+    <main class="container">
+        <div class="tp-tabs" role="tablist" aria-label="倒卖计划视图切换">
+            <button class="btn btn--ghost tp-tab" id="tabBtnPlan" type="button" role="tab" aria-controls="tabPlan" aria-selected="true">计划结果</button>
+            <button class="btn btn--ghost tp-tab" id="tabBtnAlgo" type="button" role="tab" aria-controls="tabAlgo" aria-selected="false">算法说明</button>
+        </div>
+        <section class="tp-tabpanel" id="tabPlan" role="tabpanel" aria-labelledby="tabBtnPlan">
+            <div class="tp-grid">
+                <section class="card">
+                    <div class="card__header">
+                        <div class="card__title">计划总览</div>
+                        <div class="card__subtitle" id="planMeta">—</div>
+                    </div>
+                    <div class="card__body">
+                        <div class="tp-controls">
+                            <div class="field">
+                                <label for="maxBulletsInput">最大标的数</label>
+                                <input class="tp-input" id="maxBulletsInput" type="number" min="1" max="200" step="1" value="15">
+                            </div>
+                            <div class="field">
+                                <label for="sellFeeRateInput">卖出手续费率</label>
+                                <input class="tp-input" id="sellFeeRateInput" type="number" min="0" max="1" step="0.01" value="0.15">
+                            </div>
+                            <div class="field">
+                                <label for="minRoiInput">最小 ROI</label>
+                                <input class="tp-input" id="minRoiInput" type="number" min="0" max="10" step="0.01" value="0.05">
+                            </div>
+                            <div class="field">
+                                <label for="strategySelect">策略</label>
+                                <select class="tp-input" id="strategySelect">
+                                    <option value="aggressive" selected>标准</option>
+                                    <option value="conservative">保守</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="minConfidenceInput">最小置信度</label>
+                                <input class="tp-input" id="minConfidenceInput" type="number" min="0" max="1" step="0.01" value="0.15">
+                            </div>
+                        </div>
+                        <div class="tp-controls">
+                            <div class="tp-actions">
+                                <button class="btn" id="loadPlanBtn" type="button">加载计划</button>
+                            </div>
+                        </div>
+                        <div class="tp-kpis">
+                            <div class="kpi">
+                                <div class="kpi__label">仓库格</div>
+                                <div class="kpi__value" id="kpiSlots">—</div>
+                                <div class="kpi__hint" id="kpiSlotsHint">—</div>
+                            </div>
+                            <div class="kpi">
+                                <div class="kpi__label">标的数量</div>
+                                <div class="kpi__value" id="kpiBullets">—</div>
+                                <div class="kpi__hint" id="kpiBulletsHint">—</div>
+                            </div>
+                        </div>
+                        <div class="tp-status" id="planStatus"></div>
+                        <div class="tp-table-wrap">
+                            <table class="tp-table" id="planTable">
+                                <thead>
+                                    <tr>
+                                        <th data-key="bullet"><span class="tp-th-inner"><span class="tp-th-text"></span>子弹</span><span class="tp-sort" aria-hidden="true"></span></span></th>
+                                        <th data-key="units"><span class="tp-th-inner"><span class="tp-th-text">数量</span><span class="tp-sort" aria-hidden="true"></span></span></th>
+                                        <th data-key="positionRatio"><span class="tp-th-inner"><span class="tp-th-text">持仓%</span><span class="tp-sort" aria-hidden="true"></span></span></th>
+                                        <th data-key="mape"><span class="tp-th-inner"><span class="tp-th-text">MAPE</span><span class="tp-sort" aria-hidden="true"></span></span></th>
+                                        <th data-key="confidence"><span class="tp-th-inner"><span class="tp-th-text">置信度</span><span class="tp-sort" aria-hidden="true"></span></span></th>
+                                        <th data-key="riskAdjustedProfitPerSlot"><span class="tp-th-inner"><span class="tp-th-text">预期单格利润</span><span class="tp-sort" aria-hidden="true"></span></span></th>
+                                        <th data-key="score"><span class="tp-th-inner"><span class="tp-th-text">Score</span><span class="tp-sort" aria-hidden="true"></span></span></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="planTbody">
+                                    <tr><td colspan="7" class="tp-empty">点击“加载计划”获取数据</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+                <section class="card">
+                    <div class="card__header">
+                        <div class="card__title">子弹详情</div>
+                        <div class="card__subtitle" id="bulletMeta">—</div>
+                    </div>
+                    <div class="card__body">
+                        <div class="tp-detail">
+                            <div class="tp-detail__head">
+                                <div class="tp-detail__name" id="detailName">选择一颗子弹查看详情</div>
+                                <div class="tp-detail__sub" id="detailSub">—</div>
+                            </div>
+                            <div class="tp-detail__grid">
+                                <div class="tp-detail__stat">
+                                    <div class="tp-detail__label">当前仓位</div>
+                                    <div class="tp-detail__value" id="detailSlots">—</div>
+                                </div>
+                                <div class="tp-detail__stat">
+                                    <div class="tp-detail__label">堆叠</div>
+                                    <div class="tp-detail__value" id="detailStack">—</div>
+                                </div>
+                                <div class="tp-detail__stat">
+                                    <div class="tp-detail__label">置信度</div>
+                                    <div class="tp-detail__value" id="detailConf">—</div>
+                                </div>
+                                <div class="tp-detail__stat">
+                                    <div class="tp-detail__label">预期单格利润</div>
+                                    <div class="tp-detail__value" id="detailRaps">—</div>
+                                </div>
+                            </div>
+                            <div class="tp-detail__actions">
+                                <button class="btn btn--ghost" id="loadChartBtn" type="button" disabled>加载历史/预测曲线</button>
+                            </div>
+                            <div class="tp-chart" id="chartPanel" style="display:none;">
+                                <div class="tp-chart__title" id="chartTitle">—</div>
+                                <div class="tp-chart__wrap">
+                                    <canvas id="detailChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="tp-section">
+                                <div class="tp-section__title">交易序列</div>
+                                <div class="tp-trades" id="tradesWrap">
+                                    <div class="tp-empty">—</div>
+                                </div>
+                            </div>
+                            <div class="tp-section">
+                                <div class="tp-section__title">执行触发（提示）</div>
+                                <div class="tp-trigger" id="triggerWrap">
+                                    <div class="tp-empty">—</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </section>
+        <section class="tp-tabpanel" id="tabAlgo" role="tabpanel" aria-labelledby="tabBtnAlgo" style="display:none;">
+            <section class="card">
+                <div class="card__header">
+                    <div class="card__title">算法说明</div>
+                    <div class="card__subtitle" id="algoMeta">—</div>
+                </div>
+                <div class="card__body">
+                    <div class="tp-status" id="algoStatus"></div>
+                    <div class="tp-markdown" id="algoMarkdown"></div>
+                </div>
+            </section>
+        </section>
+    </main>
+    <script>
+        const tabBtnPlan = document.getElementById('tabBtnPlan');
+        const tabBtnAlgo = document.getElementById('tabBtnAlgo');
+        const tabPlan = document.getElementById('tabPlan');
+        const tabAlgo = document.getElementById('tabAlgo');
+
+        function setTab(which) {
+            const isPlan = which === 'plan';
+            tabPlan.style.display = isPlan ? '' : 'none';
+            tabAlgo.style.display = isPlan ? 'none' : '';
+            tabBtnPlan.setAttribute('aria-selected', isPlan ? 'true' : 'false');
+            tabBtnAlgo.setAttribute('aria-selected', isPlan ? 'false' : 'true');
+            tabBtnPlan.classList.toggle('is-active', isPlan);
+            tabBtnAlgo.classList.toggle('is-active', !isPlan);
+        }
+        tabBtnPlan.addEventListener('click', () => setTab('plan'));
+        tabBtnAlgo.addEventListener('click', () => {
+            setTab('algo');
+            loadAlgo();
+        });
+        setTab('plan');
+
+        function pad2(n) {
+            return String(n).padStart(2, '0');
+        }
+        function formatTs(ts) {
+            const d = new Date(ts);
+            if (!Number.isFinite(d.getTime())) return '—';
+            const parts = new Intl.DateTimeFormat('zh-CN', {
+                timeZone: 'Asia/Shanghai',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            }).formatToParts(d);
+            const map = {};
+            for (const p of parts) map[p.type] = p.value;
+            return `${map.year}-${map.month}-${map.day} ${map.hour}:${map.minute}`;
+        }
+        function formatNumber(n, digits = 2) {
+            if (n == null || !Number.isFinite(n)) return '—';
+            return n.toLocaleString('zh-CN', { maximumFractionDigits: digits });
+        }
+        function formatPct(n, digits = 2) {
+            if (n == null || !Number.isFinite(n)) return '—';
+            return `${(n * 100).toFixed(digits)}%`;
+        }
+        function escapeHtml(text) {
+            return String(text)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
+
+        async function fetchJson(url, { signal } = {}) {
+            const resp = await fetch(url, { signal });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data && data.error ? data.error : '请求失败');
+            return data;
+        }
+
+        function loadScript(url, { timeoutMs = 10_000 } = {}) {
+            return new Promise((resolve, reject) => {
+                const el = document.createElement('script');
+                let done = false;
+                const timer = setTimeout(() => {
+                    if (done) return;
+                    done = true;
+                    el.remove();
+                    reject(new Error('加载超时'));
+                }, timeoutMs);
+                el.src = url;
+                el.async = true;
+                el.onload = () => {
+                    if (done) return;
+                    done = true;
+                    clearTimeout(timer);
+                    resolve();
+                };
+                el.onerror = () => {
+                    if (done) return;
+                    done = true;
+                    clearTimeout(timer);
+                    el.remove();
+                    reject(new Error('加载失败'));
+                };
+                document.head.appendChild(el);
+            });
+        }
+
+        function themeTokens() {
+            const s = getComputedStyle(document.documentElement);
+            const fg = s.getPropertyValue('--app-fg').trim() || 'rgba(255,255,255,0.92)';
+            const muted = s.getPropertyValue('--app-muted').trim() || 'rgba(255,255,255,0.62)';
+            const faint = s.getPropertyValue('--app-faint').trim() || 'rgba(255,255,255,0.36)';
+            const accent = s.getPropertyValue('--app-accent').trim() || '#6ef1ff';
+            const accent2 = s.getPropertyValue('--app-accent-2').trim() || '#ffcc66';
+            const border = s.getPropertyValue('--app-border').trim() || 'rgba(255,255,255,0.10)';
+            return { fg, muted, faint, accent, accent2, border };
+        }
+        function hexToRgba(hex, alpha) {
+            const h = (hex || '').trim();
+            if (!/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(h)) return `rgba(110, 241, 255, ${alpha})`;
+            const full = h.length === 4 ? `#${h[1]}${h[1]}${h[2]}${h[2]}${h[3]}${h[3]}` : h;
+            const r = parseInt(full.slice(1, 3), 16);
+            const g = parseInt(full.slice(3, 5), 16);
+            const b = parseInt(full.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        const loadPlanBtn = document.getElementById('loadPlanBtn');
+        const maxBulletsInput = document.getElementById('maxBulletsInput');
+        const sellFeeRateInput = document.getElementById('sellFeeRateInput');
+        const minRoiInput = document.getElementById('minRoiInput');
+        const strategySelect = document.getElementById('strategySelect');
+        const minConfidenceInput = document.getElementById('minConfidenceInput');
+        const planStatus = document.getElementById('planStatus');
+        const planMeta = document.getElementById('planMeta');
+        const planTbody = document.getElementById('planTbody');
+        const kpiSlots = document.getElementById('kpiSlots');
+        const kpiSlotsHint = document.getElementById('kpiSlotsHint');
+        const kpiBullets = document.getElementById('kpiBullets');
+        const kpiBulletsHint = document.getElementById('kpiBulletsHint');
+
+        const bulletMeta = document.getElementById('bulletMeta');
+        const detailName = document.getElementById('detailName');
+        const detailSub = document.getElementById('detailSub');
+        const detailSlots = document.getElementById('detailSlots');
+        const detailStack = document.getElementById('detailStack');
+        const detailConf = document.getElementById('detailConf');
+        const detailRaps = document.getElementById('detailRaps');
+        const tradesWrap = document.getElementById('tradesWrap');
+        const triggerWrap = document.getElementById('triggerWrap');
+        const loadChartBtn = document.getElementById('loadChartBtn');
+        const chartPanel = document.getElementById('chartPanel');
+        const chartTitle = document.getElementById('chartTitle');
+
+        let planResult = null;
+        let plansRaw = [];
+        let plansFiltered = [];
+        let selectedBullet = null;
+        let sortKey = 'score';
+        let sortDir = 'desc';
+        let planAbort = null;
+        let lastServerParams = null;
+
+        function clampNumber(n, min, max) {
+            if (!Number.isFinite(n)) return null;
+            return Math.max(min, Math.min(max, n));
+        }
+
+        function getParamOverrides() {
+            const overrides = {};
+            const maxBulletsRaw = Number.parseInt(String(maxBulletsInput.value), 10);
+            const maxBullets = clampNumber(maxBulletsRaw, 1, 200);
+            const fee = clampNumber(Number(sellFeeRateInput.value), 0, 1);
+            const minRoi = clampNumber(Number(minRoiInput.value), 0, 10);
+            const minConf = clampNumber(Number(minConfidenceInput.value), 0, 1);
+            if (maxBullets != null) overrides.maxBullets = maxBullets;
+            if (fee != null) overrides.sellFeeRate = fee;
+            if (minRoi != null) overrides.minRoi = minRoi;
+            if (minConf != null) overrides.minConfidence = minConf;
+            const strategyRaw = strategySelect ? String(strategySelect.value || '') : '';
+            const strategy = strategyRaw.trim().toLowerCase();
+            overrides.strategy = strategy === 'conservative' ? 'conservative' : 'aggressive';
+            return overrides;
+        }
+
+        function setPlanStatus(text) {
+            const t = text || '';
+            planStatus.textContent = t;
+            planStatus.title = t;
+        }
+
+        function applyFilters() {
+            plansFiltered = sortPlans(plansRaw.filter(Boolean), sortKey, sortDir);
+            renderTable(plansFiltered);
+            updateSortIndicators();
+        }
+
+        function sortPlans(items, key, dir) {
+            const factor = dir === 'asc' ? 1 : -1;
+            const copy = items.slice();
+            copy.sort((a, b) => {
+                const va = a && a[key];
+                const vb = b && b[key];
+                if (typeof va === 'string' || typeof vb === 'string') {
+                    return String(va || '').localeCompare(String(vb || ''), 'zh-Hans-CN') * factor;
+                }
+                const na = Number(va);
+                const nb = Number(vb);
+                const fa = Number.isFinite(na) ? na : Number.NEGATIVE_INFINITY;
+                const fb = Number.isFinite(nb) ? nb : Number.NEGATIVE_INFINITY;
+                return (fa - fb) * factor;
+            });
+            return copy;
+        }
+
+        function updateSortIndicators() {
+            document.querySelectorAll('#planTable thead th[data-key]').forEach((th) => {
+                const key = th.dataset.key;
+                th.classList.remove('is-sort-asc', 'is-sort-desc');
+                th.removeAttribute('aria-sort');
+                if (!key) return;
+                if (key !== sortKey) return;
+                if (sortDir === 'asc') {
+                    th.classList.add('is-sort-asc');
+                    th.setAttribute('aria-sort', 'ascending');
+                } else {
+                    th.classList.add('is-sort-desc');
+                    th.setAttribute('aria-sort', 'descending');
+                }
+            });
+        }
+
+        function renderTable(plans) {
+            if (!plans || plans.length === 0) {
+                planTbody.innerHTML = '<tr><td colspan="7" class="tp-empty">无匹配结果</td></tr>';
+                return;
+            }
+            planTbody.innerHTML = plans.map((p) => {
+                const bullet = escapeHtml(p.bullet || '');
+                const units = formatNumber(p.units, 0);
+                const ratio = formatPct(p.positionRatio, 2);
+                const mape = p.mape == null ? '—' : formatNumber(p.mape, 3);
+                const confidence = formatNumber(p.confidence, 3);
+                const raps = formatNumber(p.riskAdjustedProfitPerSlot, 2);
+                const score = formatNumber(p.score, 2);
+                const isActive = selectedBullet && selectedBullet.bullet === p.bullet;
+                return `<tr class="tp-row${isActive ? ' is-active' : ''}" data-bullet="${escapeHtml(p.bullet)}">
+                    <td class="tp-strong">${bullet}</td>
+                    <td>${units}</td>
+                    <td>${ratio}</td>
+                    <td>${mape}</td>
+                    <td>${confidence}</td>
+                    <td>${raps}</td>
+                    <td>${score}</td>
+                </tr>`;
+            }).join('');
+            document.querySelectorAll('.tp-row').forEach((row) => {
+                row.addEventListener('click', () => {
+                    const bullet = row.dataset.bullet;
+                    const p = plansRaw.find((x) => x && x.bullet === bullet);
+                    if (p) selectPlan(p);
+                });
+            });
+        }
+
+        function tradeTriggerSummary(plan) {
+            const params = planResult && planResult.params ? planResult.params : {};
+            const theta = Number.isFinite(params.triggerTheta) ? params.triggerTheta : 0.8;
+            const feeSell = Number.isFinite(params.sellFeeRate) ? params.sellFeeRate : 0.15;
+            const mape = Number.isFinite(plan.mape) ? plan.mape : 0;
+            const trades = Array.isArray(plan.trades) ? plan.trades : [];
+            if (trades.length === 0) return '<div class="tp-empty">无交易序列（可能未满足最小收益门槛或置信度较低）</div>';
+            const rows = trades.map((tr, i) => {
+                const buyPred = Number(tr.buyPricePred);
+                const sellPred = Number(tr.sellPricePred);
+                const buyTrigger = buyPred * (1 + theta * mape);
+                const sellNetTarget = sellPred * (1 - theta * mape);
+                const sellTrigger = (1 - feeSell) > 0 ? sellNetTarget / (1 - feeSell) : Number.POSITIVE_INFINITY;
+                return `<tr>
+                    <td>${i + 1}</td>
+                    <td>${formatTs(tr.buyTs)}</td>
+                    <td>${formatNumber(buyTrigger, 2)}</td>
+                    <td>${formatTs(tr.sellTs)}</td>
+                    <td>${formatNumber(sellTrigger, 2)}</td>
+                </tr>`;
+            }).join('');
+            return `<div class="tp-note">买入：市场价 ≤ buyTrigger 且在 buyHour 附近窗口内；卖出：市场价 ≥ sellTrigger 且在 sellHour 附近窗口内。</div>
+                <div class="tp-table-wrap tp-table-wrap--compact">
+                    <table class="tp-table">
+                        <thead><tr><th>#</th><th>买入时间</th><th>buyTrigger</th><th>卖出时间</th><th>sellTrigger</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        function tradesTable(plan) {
+            const trades = Array.isArray(plan.trades) ? plan.trades : [];
+            if (trades.length === 0) return '<div class="tp-empty">—</div>';
+            const rows = trades.map((tr, i) => {
+                return `<tr>
+                    <td>${i + 1}</td>
+                    <td>${formatTs(tr.buyTs)}</td>
+                    <td>${formatNumber(tr.buyPricePred, 2)}</td>
+                    <td>${formatNumber(tr.buyWorst, 2)}</td>
+                    <td>${formatTs(tr.sellTs)}</td>
+                    <td>${formatNumber(tr.sellPricePred, 2)}</td>
+                    <td>${formatNumber(tr.sellWorst, 2)}</td>
+                    <td class="${Number(tr.sellPricePred) - Number(tr.buyPricePred) >= 0 ? 'tp-good' : 'tp-bad'}">${formatNumber(Number(tr.sellPricePred) - Number(tr.buyPricePred), 2)}</td>
+                    <td class="${(Number(tr.buyPricePred) > 0 ? (Number(tr.sellPricePred) - Number(tr.buyPricePred)) / Number(tr.buyPricePred) : 0) >= 0 ? 'tp-good' : 'tp-bad'}">${formatPct(Number(tr.buyPricePred) > 0 ? (Number(tr.sellPricePred) - Number(tr.buyPricePred)) / Number(tr.buyPricePred) : 0, 2)}</td>
+                    <td class="${Number(tr.deltaConservative) >= 0 ? 'tp-good' : 'tp-bad'}">${formatNumber(tr.deltaConservative, 2)}</td>
+                    <td class="${Number(tr.roiConservative) >= 0 ? 'tp-good' : 'tp-bad'}">${formatPct(tr.roiConservative, 2)}</td>
+                </tr>`;
+            }).join('');
+            return `<div class="tp-table-wrap tp-table-wrap--compact">
+                <table class="tp-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>买入</th>
+                            <th>P̂_buy</th>
+                            <th>P_buy_worst</th>
+                            <th>卖出</th>
+                            <th>P̂_sell</th>
+                            <th>P_sell_worst</th>
+                            <th>预期利润</th>
+                            <th>预期ROI</th>
+                            <th>Δ_conservative</th>
+                            <th>ROI</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>`;
+        }
+
+        function selectPlan(plan) {
+            selectedBullet = plan;
+            bulletMeta.textContent = `${plan.modelGroup || ''}`;
+            detailName.textContent = plan.bullet || '—';
+            const parts = [];
+            if (plan.itemId) parts.push(`ID ${plan.itemId}`);
+            if (plan.modelId) parts.push(plan.modelId);
+            detailSub.textContent = parts.join(' · ') || '—';
+            const ratioText = Number.isFinite(plan.positionRatio) ? `（${formatPct(plan.positionRatio, 2)}）` : '';
+            detailSlots.textContent = `${formatNumber(plan.slots, 0)} 格 / ${formatNumber(plan.units, 0)} 发${ratioText}`;
+            detailStack.textContent = `${formatNumber(plan.stackSize, 0)} 发/格`;
+            detailConf.textContent = `${formatNumber(plan.confidence, 3)}（MAPE ${plan.mape == null ? '—' : formatNumber(plan.mape, 3)}）`;
+            detailRaps.textContent = formatNumber(plan.riskAdjustedProfitPerSlot, 2);
+            tradesWrap.innerHTML = tradesTable(plan);
+            triggerWrap.innerHTML = tradeTriggerSummary(plan);
+            loadChartBtn.disabled = false;
+            chartPanel.style.display = 'none';
+            renderTable(plansFiltered);
+        }
+
+        function setKpis(result) {
+            const slotsUsed = Number.isFinite(result.slotsUsed) ? result.slotsUsed : 0;
+            const slotsTotal = Number.isFinite(result.slotsTotal) ? result.slotsTotal : 0;
+            kpiSlots.textContent = `${formatNumber(slotsUsed, 0)} / ${formatNumber(slotsTotal, 0)}`;
+            kpiSlotsHint.textContent = result.cached ? '命中缓存' : '新生成';
+            const n = Array.isArray(result.plans) ? result.plans.length : 0;
+            kpiBullets.textContent = formatNumber(n, 0);
+            kpiBulletsHint.textContent = '已选标的';
+            const params = result.params || {};
+            const ts = Number.isFinite(result.generatedAt) ? result.generatedAt : null;
+            const meta = [];
+            if (ts) meta.push(`生成 ${formatTs(ts)}`);
+            meta.push(result.cached ? 'cached=true' : 'cached=false');
+            planMeta.textContent = meta.join(' · ');
+            lastServerParams = params;
+            if (Number.isFinite(params.maxBullets)) maxBulletsInput.value = String(params.maxBullets);
+            if (Number.isFinite(params.sellFeeRate)) sellFeeRateInput.value = String(params.sellFeeRate);
+            if (Number.isFinite(params.minRoi)) minRoiInput.value = String(params.minRoi);
+            if (strategySelect) {
+                const strategyRaw = params && params.strategy != null ? String(params.strategy) : '';
+                const strategy = strategyRaw.trim().toLowerCase();
+                strategySelect.value = strategy === 'conservative' ? 'conservative' : 'aggressive';
+            }
+            if (Number.isFinite(params.minConfidence)) minConfidenceInput.value = String(params.minConfidence);
+        }
+
+        async function loadPlan() {
+            if (planAbort) planAbort.abort();
+            planAbort = new AbortController();
+            const signal = planAbort.signal;
+            setPlanStatus('加载中…');
+            loadPlanBtn.disabled = true;
+            try {
+                const qs = new URLSearchParams();
+                const overrides = getParamOverrides();
+                for (const [k, v] of Object.entries(overrides)) qs.set(k, String(v));
+                const url = `/api/trade-plan${qs.toString() ? `?${qs.toString()}` : ''}`;
+                const t0 = performance.now();
+                const data = await fetchJson(url, { signal });
+                const dt = performance.now() - t0;
+                planResult = data;
+                plansRaw = Array.isArray(data.plans) ? data.plans : [];
+                setKpis(data);
+                if (plansRaw.length === 0 && data && data.debug) {
+                    const dbg = data.debug || {};
+                    const hint = [];
+                    hint.push(`ok=${formatNumber(dbg.plansOkFlag, 0)}`);
+                    hint.push(`profit>0=${formatNumber(dbg.plansProfitPositive, 0)}`);
+                    hint.push(`conf达标=${formatNumber(dbg.plansConfidenceOk, 0)}`);
+                    const suggest = Number(dbg.plansOkFlag) > 0 && Number(dbg.plansProfitPositive) === 0 ? ' · 可尝试调低卖出手续费率/最小ROI' : '';
+                    setPlanStatus(`完成：${formatNumber(dt, 0)}ms · 无可倒卖子弹 · ${hint.join(' · ')}${suggest}`);
+                } else {
+                    setPlanStatus(`完成：${formatNumber(dt, 0)}ms`);
+                }
+                if (plansRaw.length > 0) {
+                    const first = plansRaw[0];
+                    selectedBullet = null;
+                    applyFilters();
+                    selectPlan(first);
+                } else {
+                    selectedBullet = null;
+                    applyFilters();
+                }
+            } catch (e) {
+                if (e && e.name === 'AbortError') return;
+                setPlanStatus(e && e.message ? e.message : '加载失败');
+            } finally {
+                loadPlanBtn.disabled = false;
+            }
+        }
+
+        loadPlanBtn.addEventListener('click', () => loadPlan());
+
+        document.querySelectorAll('#planTable thead th[data-key]').forEach((th) => {
+            th.addEventListener('click', () => {
+                const key = th.dataset.key;
+                if (!key) return;
+                if (sortKey === key) {
+                    sortDir = sortDir === 'desc' ? 'asc' : 'desc';
+                } else {
+                    sortKey = key;
+                    sortDir = key === 'bullet' ? 'asc' : 'desc';
+                }
+                plansFiltered = sortPlans(plansFiltered, sortKey, sortDir);
+                renderTable(plansFiltered);
+                updateSortIndicators();
+            });
+        });
+        updateSortIndicators();
+
+        const algoMeta = document.getElementById('algoMeta');
+        const algoStatus = document.getElementById('algoStatus');
+        const algoMarkdown = document.getElementById('algoMarkdown');
+        let algoLoaded = false;
+        let algoAbort = null;
+
+        function setAlgoStatus(text) {
+            const t = text || '';
+            algoStatus.textContent = t;
+            algoStatus.title = t;
+        }
+
+        function renderAlgoMarkdown(md) {
+            const lines = String(md || '').replaceAll('\r\n', '\n').replaceAll('\r', '\n').split('\n');
+            const out = [];
+            let inCode = false;
+            let codeLines = [];
+            let listOpen = false;
+
+            const closeList = () => {
+                if (!listOpen) return;
+                out.push('</ul>');
+                listOpen = false;
+            };
+            const closeCode = () => {
+                if (!inCode) return;
+                const code = escapeHtml(codeLines.join('\n'));
+                out.push(`<pre class="tp-md-raw">${code}</pre>`);
+                codeLines = [];
+                inCode = false;
+            };
+
+            const sanitizeHref = (href) => {
+                const h = String(href || '').trim();
+                if (h.startsWith('http://') || h.startsWith('https://') || h.startsWith('/') || h.startsWith('#')) return h;
+                return '#';
+            };
+
+            const inline = (text) => {
+                let t = escapeHtml(text);
+                t = t.replaceAll(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+                t = t.replaceAll(/`([^`]+?)`/g, '<code>$1</code>');
+                t = t.replaceAll(/\[([^\]]+?)\]\(([^)]+?)\)/g, (_, labelEsc, hrefEsc) => {
+                    const safeHref = sanitizeHref(hrefEsc);
+                    return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${labelEsc}</a>`;
+                });
+                return t;
+            };
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (line.startsWith('```')) {
+                    if (inCode) {
+                        closeCode();
+                    } else {
+                        closeList();
+                        inCode = true;
+                        codeLines = [];
+                    }
+                    continue;
+                }
+                if (inCode) {
+                    codeLines.push(line);
+                    continue;
+                }
+                const trimmed = line.trim();
+                if (!trimmed) {
+                    closeList();
+                    continue;
+                }
+                const heading = trimmed.match(/^(#{1,6})\s+(.+)$/);
+                if (heading) {
+                    closeList();
+                    const level = heading[1].length;
+                    out.push(`<h${level}>${inline(heading[2])}</h${level}>`);
+                    continue;
+                }
+                const li = trimmed.match(/^[-*]\s+(.+)$/);
+                if (li) {
+                    if (!listOpen) {
+                        out.push('<ul>');
+                        listOpen = true;
+                    }
+                    out.push(`<li>${inline(li[1])}</li>`);
+                    continue;
+                }
+                closeList();
+                out.push(`<p>${inline(trimmed)}</p>`);
+            }
+            closeCode();
+            closeList();
+            return out.join('\n');
+        }
+
+        async function loadAlgo() {
+            if (algoLoaded) return;
+            if (algoAbort) algoAbort.abort();
+            algoAbort = new AbortController();
+            const signal = algoAbort.signal;
+            setAlgoStatus('加载中…');
+            try {
+                const resp = await fetch('/api/docs/trade-plan-algo', { signal });
+                if (!resp.ok) {
+                    const data = await resp.json().catch(() => ({}));
+                    throw new Error(data && data.error ? data.error : `HTTP ${resp.status}`);
+                }
+                const md = await resp.text();
+                algoMarkdown.innerHTML = renderAlgoMarkdown(md);
+                algoMeta.textContent = '来源：web/docs/trade-plan-algo.md';
+                setAlgoStatus('');
+                algoLoaded = true;
+            } catch (e) {
+                if (e && e.name === 'AbortError') return;
+                setAlgoStatus(e && e.message ? e.message : '加载失败');
+            }
+        }
+
+        let detailChart = null;
+        function applyChartTheme() {
+            if (!detailChart) return;
+            const t = themeTokens();
+            detailChart.options.plugins.legend.labels.color = t.muted;
+            detailChart.options.plugins.tooltip.borderColor = t.border;
+            detailChart.options.scales.x.ticks.color = t.faint;
+            detailChart.options.scales.y.ticks.color = t.faint;
+            detailChart.options.scales.x.grid.color = hexToRgba(t.accent, 0.08);
+            detailChart.options.scales.y.grid.color = hexToRgba(t.accent, 0.08);
+            detailChart.update('none');
+        }
+
+        function ensureDetailChart() {
+            if (detailChart) return detailChart;
+            if (!window.Chart) throw new Error('Chart.js 未加载');
+            const ctx = document.getElementById('detailChart').getContext('2d');
+            detailChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            labels: {
+                                color: themeTokens().muted,
+                                boxWidth: 10,
+                                boxHeight: 10,
+                                usePointStyle: true,
+                                pointStyle: 'circle'
+                            }
+                        },
+                        tooltip: {
+                            enabled: true,
+                            backgroundColor: 'rgba(0,0,0,0.75)',
+                            titleColor: 'rgba(255,255,255,0.92)',
+                            bodyColor: 'rgba(255,255,255,0.86)',
+                            borderColor: themeTokens().border,
+                            borderWidth: 1
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { maxTicksLimit: 10, color: themeTokens().faint },
+                            grid: { color: hexToRgba(themeTokens().accent, 0.08) }
+                        },
+                        y: {
+                            beginAtZero: false,
+                            ticks: { color: themeTokens().faint },
+                            grid: { color: hexToRgba(themeTokens().accent, 0.08) }
+                        }
+                    }
+                }
+            });
+            return detailChart;
+        }
+
+        function closestIndexByTs(points, targetTs) {
+            if (!points || points.length === 0) return -1;
+            let bestIdx = 0;
+            let bestDist = Math.abs(points[0].ts - targetTs);
+            for (let i = 1; i < points.length; i++) {
+                const d = Math.abs(points[i].ts - targetTs);
+                if (d < bestDist) {
+                    bestDist = d;
+                    bestIdx = i;
+                }
+            }
+            return bestIdx;
+        }
+
+        async function loadDetailChart() {
+            if (!selectedBullet) return;
+            const bullet = selectedBullet.bullet;
+            loadChartBtn.disabled = true;
+            chartTitle.textContent = '加载中…';
+            chartPanel.style.display = '';
+            try {
+                try {
+                    await loadScript('/vendor/chart.js', { timeoutMs: 8000 });
+                } catch {}
+                if (!window.Chart) throw new Error('无法加载 Chart.js');
+                const range = '7d';
+                const series = await fetchJson(`/api/series?bullet=${encodeURIComponent(bullet)}&range=${encodeURIComponent(range)}`);
+                let forecast = { available: false, points: [] };
+                try {
+                    forecast = await fetchJson(`/api/forecast?bullet=${encodeURIComponent(bullet)}`);
+                } catch {
+                    forecast = { available: false, points: [] };
+                }
+                const historyPoints = Array.isArray(series.points) ? series.points : [];
+                const forecastPoints = forecast && forecast.available ? (Array.isArray(forecast.points) ? forecast.points : []) : [];
+                const allPoints = historyPoints.concat(forecastPoints);
+                const labels = allPoints.map((p) => formatTs(p.ts));
+                const histData = historyPoints.map((p) => p.price).concat(Array(forecastPoints.length).fill(null));
+                const predData = Array(historyPoints.length).fill(null).concat(forecastPoints.map((p) => p.price));
+
+                const t = themeTokens();
+                const chart = ensureDetailChart();
+                chart.data.labels = labels;
+                const buyMarks = new Array(labels.length).fill(null);
+                const sellMarks = new Array(labels.length).fill(null);
+                const trades = Array.isArray(selectedBullet.trades) ? selectedBullet.trades : [];
+                for (const tr of trades) {
+                    const bi = closestIndexByTs(allPoints, tr.buyTs);
+                    const si = closestIndexByTs(allPoints, tr.sellTs);
+                    if (bi >= 0) buyMarks[bi] = allPoints[bi].price;
+                    if (si >= 0) sellMarks[si] = allPoints[si].price;
+                }
+
+                chart.data.datasets = [
+                    {
+                        label: '历史均价',
+                        data: histData,
+                        borderColor: hexToRgba(t.accent2, 0.92),
+                        backgroundColor: hexToRgba(t.accent2, 0.12),
+                        pointRadius: 0,
+                        tension: 0.2
+                    },
+                    {
+                        label: 'TimeXer 预测',
+                        data: predData,
+                        borderColor: hexToRgba(t.accent, 0.95),
+                        backgroundColor: hexToRgba(t.accent, 0.10),
+                        borderDash: [6, 4],
+                        pointRadius: 0,
+                        tension: 0.2
+                    },
+                    {
+                        label: '买点',
+                        data: buyMarks,
+                        borderColor: hexToRgba(t.accent, 0.0),
+                        backgroundColor: hexToRgba(t.accent, 0.95),
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        showLine: false
+                    },
+                    {
+                        label: '卖点',
+                        data: sellMarks,
+                        borderColor: hexToRgba(t.accent2, 0.0),
+                        backgroundColor: hexToRgba(t.accent2, 0.95),
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        showLine: false
+                    }
+                ];
+                applyChartTheme();
+
+                const titleParts = [];
+                titleParts.push(bullet);
+                titleParts.push(series && series.category ? series.category : selectedBullet.modelGroup || '');
+                titleParts.push(`近 7 天 + 预测 ${forecast && forecast.available ? (forecast.predLen || 0) : 0}h`);
+                chartTitle.textContent = titleParts.filter(Boolean).join(' · ');
+            } catch (e) {
+                chartTitle.textContent = e && e.message ? e.message : '加载失败';
+            } finally {
+                loadChartBtn.disabled = false;
+            }
+        }
+        loadChartBtn.addEventListener('click', loadDetailChart);
+    </script>
+</body>
+</html>
